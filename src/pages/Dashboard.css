@@ -1,0 +1,26 @@
+.dashboard {
+  padding: 0;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: #262626;
+}
+
+.summary-cards {
+  margin-bottom: 24px;
+}
+
+.charts-row {
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  height: 100%;
+}
+
+.recent-activity-card {
+  margin-top: 24px;
+}
