@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import { Row, Col, Card, Statistic, Table, Tag } from 'antd';
+import { Row, Col, Card, Statistic, Table, Tag, Alert, Space } from 'antd';
 import {
   ProjectOutlined,
   FileTextOutlined,
@@ -8,6 +8,7 @@ import {
   ClockCircleOutlined,
   DollarOutlined,
   BankOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import {
   BarChart,
@@ -25,6 +26,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { formatCurrency, getStatusColor } from '../data/mockData';
+import { checkDeadlineStatus, isAtRisk } from '../utils/deadlineUtils';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -101,6 +103,7 @@ const Dashboard = () => {
       .slice(0, 5)
       .map((project) => {
         const projectTenders = tenders.filter(t => t.projectId === project.id);
+        const deadlineStatus = checkDeadlineStatus(project.endDate, project.progress);
         return {
           key: project.id,
           projectName: project.name,
@@ -108,8 +111,30 @@ const Dashboard = () => {
           status: project.status,
           startDate: project.startDate,
           endDate: project.endDate,
+          deadlineStatus,
         };
       });
+  }, [projects, tenders]);
+
+  // Calculate at-risk items
+  const atRiskItems = useMemo(() => {
+    const atRiskProjects = projects.filter(p => {
+      if (!p.endDate || p.status === 'completed' || p.status === 'cancelled') return false;
+      const deadlineStatus = checkDeadlineStatus(p.endDate, p.progress);
+      return deadlineStatus.isOverdue || deadlineStatus.status === 'warning';
+    });
+
+    const atRiskTenders = tenders.filter(t => {
+      if (!t.endDate || t.status === 'completed' || t.status === 'cancelled') return false;
+      const deadlineStatus = checkDeadlineStatus(t.endDate, t.progress || 0);
+      return deadlineStatus.isOverdue || deadlineStatus.status === 'warning';
+    });
+
+    return {
+      projects: atRiskProjects,
+      tenders: atRiskTenders,
+      total: atRiskProjects.length + atRiskTenders.length,
+    };
   }, [projects, tenders]);
 
   const recentActivityColumns = [
@@ -134,6 +159,21 @@ const Dashboard = () => {
       ),
     },
     {
+      title: 'Deadline Status',
+      dataIndex: 'deadlineStatus',
+      key: 'deadlineStatus',
+      render: (deadlineStatus) => {
+        if (!deadlineStatus) return '-';
+        if (deadlineStatus.isOverdue) {
+          return <Tag color="red">Trễ {deadlineStatus.daysOverdue} ngày</Tag>;
+        }
+        if (deadlineStatus.status === 'warning') {
+          return <Tag color="orange">Còn {deadlineStatus.daysRemaining} ngày</Tag>;
+        }
+        return <Tag color="green">Còn {deadlineStatus.daysRemaining} ngày</Tag>;
+      },
+    },
+    {
       title: 'Start Date',
       dataIndex: 'startDate',
       key: 'startDate',
@@ -148,6 +188,28 @@ const Dashboard = () => {
   return (
     <div className="dashboard">
       <h1 className="page-title">Dashboard</h1>
+
+      {/* Deadline Alerts */}
+      {atRiskItems.total > 0 && (
+        <Alert
+          message={
+            <Space>
+              <ExclamationCircleOutlined />
+              <strong>Cảnh báo Deadline</strong>
+            </Space>
+          }
+          description={
+            <span>
+              Có <strong>{atRiskItems.projects.length}</strong> dự án và <strong>{atRiskItems.tenders.length}</strong> gói thầu 
+              đang trễ deadline hoặc có nguy cơ trễ. Vui lòng kiểm tra và xử lý kịp thời.
+            </span>
+          }
+          type="warning"
+          showIcon
+          closable
+          style={{ marginBottom: 24 }}
+        />
+      )}
 
       {/* Summary Cards */}
       <Row gutter={[16, 16]} className="summary-cards">

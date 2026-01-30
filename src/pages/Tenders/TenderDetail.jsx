@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { Card, Descriptions, Tag, Progress, Button } from 'antd';
+import { Card, Descriptions, Tag, Progress, Button, Space } from 'antd';
 import { ArrowLeftOutlined, EditOutlined } from '@ant-design/icons';
 import { setSelectedTender } from '../../store/slices/tendersSlice';
 import { formatCurrency, getStatusColor } from '../../data/mockData';
 import WithPermission from '../../components/Common/WithPermission';
 import { PERMISSIONS } from '../../data/mockUsers';
+import DeadlineAlert from '../../components/Common/DeadlineAlert';
+import DeadlineBadge from '../../components/Common/DeadlineBadge';
 import './TenderDetail.css';
 
 const TenderDetail = () => {
@@ -49,6 +51,7 @@ const TenderDetail = () => {
       </div>
 
       <Card title="Tender Package Information" className="detail-card">
+        <DeadlineAlert endDate={tender.endDate} progress={tender.progress} type="tender" />
         <Descriptions column={2} bordered>
           <Descriptions.Item label="Tender Code">{tender.code}</Descriptions.Item>
           <Descriptions.Item label="Tender Name">{tender.name}</Descriptions.Item>
@@ -77,7 +80,12 @@ const TenderDetail = () => {
             {formatCurrency(tender.contractValue)}
           </Descriptions.Item>
           <Descriptions.Item label="Start Date">{tender.startDate}</Descriptions.Item>
-          <Descriptions.Item label="End Date">{tender.endDate}</Descriptions.Item>
+          <Descriptions.Item label="End Date">
+            <Space>
+              {tender.endDate}
+              <DeadlineBadge endDate={tender.endDate} progress={tender.progress} />
+            </Space>
+          </Descriptions.Item>
           <Descriptions.Item label="Implementation Progress" span={2}>
             <Progress percent={tender.progress} status="active" />
           </Descriptions.Item>

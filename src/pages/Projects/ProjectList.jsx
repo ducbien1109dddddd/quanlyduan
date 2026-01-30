@@ -7,6 +7,7 @@ import { deleteProject } from '../../store/slices/projectsSlice';
 import { formatCurrency, getStatusColor } from '../../data/mockData';
 import WithPermission from '../../components/Common/WithPermission';
 import { PERMISSIONS } from '../../data/mockUsers';
+import DeadlineBadge from '../../components/Common/DeadlineBadge';
 import './ProjectList.css';
 
 const { Search } = Input;
@@ -74,6 +75,13 @@ const ProjectList = () => {
         { text: 'Planning', value: 'planning' },
       ],
       onFilter: (value, record) => record.status === value,
+    },
+    {
+      title: 'Deadline',
+      key: 'deadline',
+      render: (_, record) => (
+        <DeadlineBadge endDate={record.endDate} progress={record.progress} />
+      ),
     },
     {
       title: 'Actions',

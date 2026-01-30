@@ -7,6 +7,7 @@ import { deleteTender } from '../../store/slices/tendersSlice';
 import { formatCurrency, getStatusColor } from '../../data/mockData';
 import WithPermission from '../../components/Common/WithPermission';
 import { PERMISSIONS } from '../../data/mockUsers';
+import DeadlineBadge from '../../components/Common/DeadlineBadge';
 import './TenderList.css';
 
 const { Search } = Input;
@@ -91,6 +92,13 @@ const TenderList = () => {
         { text: 'Completed', value: 'completed' },
       ],
       onFilter: (value, record) => record.status === value,
+    },
+    {
+      title: 'Deadline',
+      key: 'deadline',
+      render: (_, record) => (
+        <DeadlineBadge endDate={record.endDate} progress={record.progress} />
+      ),
     },
     {
       title: 'Actions',

@@ -5,9 +5,20 @@ import { ref, set, get, push, update, remove, onValue, off } from 'firebase/data
 const USERS_PATH = 'users';
 
 /**
+ * Check if Firebase is available
+ */
+const isFirebaseAvailable = () => {
+  return database !== null && database !== undefined;
+};
+
+/**
  * Get all users from Firebase
  */
 export const getAllUsers = async () => {
+  if (!isFirebaseAvailable()) {
+    throw new Error('Firebase is not available');
+  }
+  
   try {
     const usersRef = ref(database, USERS_PATH);
     const snapshot = await get(usersRef);
@@ -31,6 +42,10 @@ export const getAllUsers = async () => {
  * Get user by ID
  */
 export const getUserById = async (userId) => {
+  if (!isFirebaseAvailable()) {
+    throw new Error('Firebase is not available');
+  }
+  
   try {
     const userRef = ref(database, `${USERS_PATH}/${userId}`);
     const snapshot = await get(userRef);
@@ -65,6 +80,10 @@ export const getUserByUsername = async (username) => {
  * Create new user
  */
 export const createUser = async (userData) => {
+  if (!isFirebaseAvailable()) {
+    throw new Error('Firebase is not available');
+  }
+  
   try {
     const usersRef = ref(database, USERS_PATH);
     const newUserRef = push(usersRef);
@@ -87,6 +106,10 @@ export const createUser = async (userData) => {
  * Update user
  */
 export const updateUser = async (userId, updates) => {
+  if (!isFirebaseAvailable()) {
+    throw new Error('Firebase is not available');
+  }
+  
   try {
     const userRef = ref(database, `${USERS_PATH}/${userId}`);
     await update(userRef, updates);
@@ -101,6 +124,10 @@ export const updateUser = async (userId, updates) => {
  * Delete user
  */
 export const deleteUser = async (userId) => {
+  if (!isFirebaseAvailable()) {
+    throw new Error('Firebase is not available');
+  }
+  
   try {
     const userRef = ref(database, `${USERS_PATH}/${userId}`);
     await remove(userRef);
@@ -115,23 +142,33 @@ export const deleteUser = async (userId) => {
  * Listen to users changes (real-time updates)
  */
 export const subscribeToUsers = (callback) => {
-  const usersRef = ref(database, USERS_PATH);
+  if (!isFirebaseAvailable()) {
+    console.warn('Firebase is not available, real-time updates disabled');
+    return () => {}; // Return empty unsubscribe function
+  }
   
-  onValue(usersRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const usersData = snapshot.val();
-      const users = Object.keys(usersData).map(key => ({
-        id: key,
-        ...usersData[key]
-      }));
-      callback(users);
-    } else {
-      callback([]);
-    }
-  });
-  
-  // Return unsubscribe function
-  return () => {
-    off(usersRef);
-  };
+  try {
+    const usersRef = ref(database, USERS_PATH);
+    
+    onValue(usersRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const usersData = snapshot.val();
+        const users = Object.keys(usersData).map(key => ({
+          id: key,
+          ...usersData[key]
+        }));
+        callback(users);
+      } else {
+        callback([]);
+      }
+    });
+    
+    // Return unsubscribe function
+    return () => {
+      off(usersRef);
+    };
+  } catch (error) {
+    console.error('Error subscribing to users:', error);
+    return () => {}; // Return empty unsubscribe function
+  }
 };

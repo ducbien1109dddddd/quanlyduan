@@ -17,10 +17,17 @@ const firebaseConfig = {
   measurementId: "G-93NWPDMNKV" // Optional: for Analytics
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase with error handling
+let app;
+let database;
 
-// Initialize Realtime Database
-export const database = getDatabase(app);
+try {
+  app = initializeApp(firebaseConfig);
+  database = getDatabase(app);
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+  // App will fallback to localStorage if Firebase fails
+}
 
+export { database };
 export default app;

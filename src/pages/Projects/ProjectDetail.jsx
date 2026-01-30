@@ -7,6 +7,8 @@ import { setSelectedProject } from '../../store/slices/projectsSlice';
 import { formatCurrency, getStatusColor } from '../../data/mockData';
 import WithPermission from '../../components/Common/WithPermission';
 import { PERMISSIONS } from '../../data/mockUsers';
+import DeadlineAlert from '../../components/Common/DeadlineAlert';
+import DeadlineBadge from '../../components/Common/DeadlineBadge';
 import './ProjectDetail.css';
 
 const ProjectDetail = () => {
@@ -102,6 +104,7 @@ const ProjectDetail = () => {
       </div>
 
       <Card title="Project Information" className="detail-card">
+        <DeadlineAlert endDate={project.endDate} progress={project.progress} type="project" />
         <Descriptions column={2} bordered>
           <Descriptions.Item label="Project Code">{project.code}</Descriptions.Item>
           <Descriptions.Item label="Project Name">{project.name}</Descriptions.Item>
@@ -127,7 +130,12 @@ const ProjectDetail = () => {
             />
           </Descriptions.Item>
           <Descriptions.Item label="Start Date">{project.startDate}</Descriptions.Item>
-          <Descriptions.Item label="End Date">{project.endDate}</Descriptions.Item>
+          <Descriptions.Item label="End Date">
+            <Space>
+              {project.endDate}
+              <DeadlineBadge endDate={project.endDate} progress={project.progress} />
+            </Space>
+          </Descriptions.Item>
           <Descriptions.Item label="Overall Progress" span={2}>
             <Progress percent={project.progress} status="active" />
           </Descriptions.Item>
