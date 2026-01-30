@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { Form, Input, Button, Card, message, Typography } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, UserAddOutlined } from '@ant-design/icons';
-import { register } from '../store/slices/authSlice';
+import { registerUser } from '../store/slices/authSlice';
 import './Register.css';
 
 const { Title, Text } = Typography;
@@ -24,25 +24,21 @@ const Register = () => {
         return;
       }
 
-      // Check if username already exists
-      const existingUser = users.find((u) => u.username === values.username);
-      if (existingUser) {
-        message.error('Username already exists. Please choose another one.');
-        setLoading(false);
-        return;
-      }
-
-      dispatch(register({
+      const result = await dispatch(registerUser({
         username: values.username,
         password: values.password,
         name: values.name,
         email: values.email,
       }));
 
-      message.success('Registration successful! Please login.');
-      setTimeout(() => {
-        navigate('/login');
-      }, 1500);
+      if (registerUser.fulfilled.match(result)) {
+        message.success('Registration successful! Please login.');
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
+      } else {
+        message.error(result.payload || 'Registration failed. Please try again.');
+      }
     } catch (error) {
       message.error('Registration failed. Please try again.');
     } finally {

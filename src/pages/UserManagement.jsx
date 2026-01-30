@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Table, Button, Space, Tag, Popconfirm, message, Modal, Form, Select, Checkbox, Typography } from 'antd';
 import { EditOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons';
-import { updateUserPermissions, deleteUser } from '../store/slices/authSlice';
+import { updateUserPermissionsAsync, deleteUserAsync, setUsers } from '../store/slices/authSlice';
+import { subscribeToUsers } from '../services/firebaseService';
 import { PERMISSIONS, ROLES } from '../data/mockUsers';
 import './UserManagement.css';
 
@@ -16,6 +17,18 @@ const UserManagement = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [form] = Form.useForm();
+
+  // Subscribe to real-time updates from Firebase
+  useEffect(() => {
+    const unsubscribe = subscribeToUsers((users) => {
+      // Update users in Redux store
+      dispatch(setUsers(users));
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [dispatch]);
 
   // Filter out current user from delete options (can't delete yourself)
   const manageableUsers = useMemo(() => {
@@ -31,21 +44,30 @@ const UserManagement = () => {
     setEditModalVisible(true);
   };
 
-  const handleDelete = (userId) => {
-    dispatch(deleteUser(userId));
-    message.success('User deleted successfully');
+  const handleDelete = async (userId) => {
+    const result = await dispatch(deleteUserAsync(userId));
+    if (deleteUserAsync.fulfilled.match(result)) {
+      message.success('User deleted successfully');
+    } else {
+      message.error('Failed to delete user');
+    }
   };
 
   const handleSavePermissions = () => {
-    form.validateFields().then((values) => {
-      dispatch(updateUserPermissions({
+    form.validateFields().then(async (values) => {
+      const result = await dispatch(updateUserPermissionsAsync({
         userId: selectedUser.id,
         role: values.role,
         permissions: values.permissions,
       }));
-      message.success('User permissions updated successfully');
-      setEditModalVisible(false);
-      form.resetFields();
+      
+      if (updateUserPermissionsAsync.fulfilled.match(result)) {
+        message.success('User permissions updated successfully');
+        setEditModalVisible(false);
+        form.resetFields();
+      } else {
+        message.error('Failed to update permissions');
+      }
     });
   };
 

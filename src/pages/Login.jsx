@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { Form, Input, Button, Card, message, Typography } from 'antd';
 import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons';
-import { login } from '../store/slices/authSlice';
+import { login, fetchUsers } from '../store/slices/authSlice';
 import './Login.css';
 
 const { Title, Text } = Typography;
@@ -13,6 +13,11 @@ const Login = () => {
   const navigate = useNavigate();
   const users = useSelector((state) => state.auth.users);
   const [loading, setLoading] = useState(false);
+
+  // Load users from Firebase when component mounts
+  useEffect(() => {
+    dispatch(fetchUsers());
+  }, [dispatch]);
 
   const onFinish = async (values) => {
     setLoading(true);

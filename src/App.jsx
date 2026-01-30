@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchUsers } from './store/slices/authSlice';
 import MainLayout from './components/Layout/MainLayout';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Login from './pages/Login';
@@ -19,7 +20,20 @@ import Settings from './pages/Settings';
 import { PERMISSIONS, ROLES } from './data/mockUsers';
 
 function App() {
+  const dispatch = useDispatch();
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+
+  // Load users from Firebase when app starts
+  useEffect(() => {
+    dispatch(fetchUsers());
+    
+    // Subscribe to real-time updates
+    const unsubscribe = () => {
+      // Real-time subscription will be handled in UserManagement component
+    };
+    
+    return unsubscribe;
+  }, [dispatch]);
 
   return (
     <Routes>

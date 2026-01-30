@@ -1,5 +1,6 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { mockUsers } from '../../data/mockUsers';
+import * as firebaseService from '../../services/firebaseService';
 
 // Get user from localStorage or use default
 const getInitialUser = () => {
@@ -14,25 +15,105 @@ const getInitialUser = () => {
   return null;
 };
 
-// Get users from localStorage or use mock data
-const getInitialUsers = () => {
-  const savedUsers = localStorage.getItem('users');
-  if (savedUsers) {
+// Async thunks for Firebase operations
+export const fetchUsers = createAsyncThunk(
+  'auth/fetchUsers',
+  async (_, { rejectWithValue }) => {
     try {
-      return JSON.parse(savedUsers);
-    } catch (e) {
+      const users = await firebaseService.getAllUsers();
+      // If no users in Firebase, initialize with mock users
+      if (users.length === 0) {
+        // Initialize Firebase with mock users
+        for (const user of mockUsers) {
+          await firebaseService.createUser(user);
+        }
+        return mockUsers;
+      }
+      return users;
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      // Fallback to localStorage if Firebase fails
+      const savedUsers = localStorage.getItem('users');
+      if (savedUsers) {
+        try {
+          return JSON.parse(savedUsers);
+        } catch (e) {
+          return mockUsers;
+        }
+      }
       return mockUsers;
     }
   }
-  // Save mock users to localStorage initially
-  localStorage.setItem('users', JSON.stringify(mockUsers));
-  return mockUsers;
-};
+);
+
+export const registerUser = createAsyncThunk(
+  'auth/registerUser',
+  async (userData, { rejectWithValue }) => {
+    try {
+      // Check if username exists
+      const existingUser = await firebaseService.getUserByUsername(userData.username);
+      if (existingUser) {
+        throw new Error('Username already exists');
+      }
+
+      const newUser = {
+        username: userData.username,
+        password: userData.password,
+        name: userData.name,
+        email: userData.email,
+        role: 'viewer',
+        permissions: [
+          'projects.view',
+          'tenders.view',
+          'dashboard.view',
+          'reports.view',
+        ],
+        avatar: null,
+        isActive: true,
+      };
+
+      const createdUser = await firebaseService.createUser(newUser);
+      return createdUser;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const updateUserPermissionsAsync = createAsyncThunk(
+  'auth/updateUserPermissions',
+  async ({ userId, permissions, role }, { rejectWithValue }) => {
+    try {
+      const updates = {};
+      if (role) updates.role = role;
+      if (permissions) updates.permissions = permissions;
+      
+      await firebaseService.updateUser(userId, updates);
+      return { userId, ...updates };
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const deleteUserAsync = createAsyncThunk(
+  'auth/deleteUser',
+  async (userId, { rejectWithValue }) => {
+    try {
+      await firebaseService.deleteUser(userId);
+      return userId;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
 
 const initialState = {
   currentUser: getInitialUser(),
   isAuthenticated: !!getInitialUser(),
-  users: getInitialUsers(),
+  users: [],
+  loading: false,
+  error: null,
 };
 
 const authSlice = createSlice({
@@ -58,92 +139,99 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       localStorage.removeItem('currentUser');
     },
-    register: (state, action) => {
-      const { username, password, name, email } = action.payload;
-      
-      // Check if username already exists
-      const existingUser = state.users.find((u) => u.username === username);
-      if (existingUser) {
-        return state; // Username already exists
-      }
-      
-      // Create new user with default viewer role
-      const newUser = {
-        id: Date.now().toString(),
-        username,
-        password,
-        name,
-        email,
-        role: 'viewer',
-        permissions: [
-          'projects.view',
-          'tenders.view',
-          'dashboard.view',
-          'reports.view',
-        ],
-        avatar: null,
-        createdAt: new Date().toISOString(),
-        isActive: true,
-      };
-      
-      state.users.push(newUser);
-      // Save to localStorage (in real app, this would be API call)
-      localStorage.setItem('users', JSON.stringify(state.users));
+    setUsers: (state, action) => {
+      state.users = action.payload;
     },
-    updateUser: (state, action) => {
-      const { id, ...updates } = action.payload;
-      const userIndex = state.users.findIndex((u) => u.id === id);
-      
-      if (userIndex !== -1) {
-        state.users[userIndex] = { ...state.users[userIndex], ...updates };
-        localStorage.setItem('users', JSON.stringify(state.users));
-        
-        // Update current user if it's the same user
-        if (state.currentUser && state.currentUser.id === id) {
-          const updatedUser = { ...state.currentUser, ...updates };
-          delete updatedUser.password;
-          state.currentUser = updatedUser;
-          localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
-        }
-      }
-    },
-    updateUserPermissions: (state, action) => {
-      const { userId, permissions, role } = action.payload;
-      const userIndex = state.users.findIndex((u) => u.id === userId);
-      
-      if (userIndex !== -1) {
-        if (role) {
-          state.users[userIndex].role = role;
-        }
-        if (permissions) {
-          state.users[userIndex].permissions = permissions;
-        }
-        localStorage.setItem('users', JSON.stringify(state.users));
-        
-        // Update current user if it's the same user
-        if (state.currentUser && state.currentUser.id === userId) {
-          if (role) state.currentUser.role = role;
-          if (permissions) state.currentUser.permissions = permissions;
-          localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
-        }
-      }
-    },
-    deleteUser: (state, action) => {
-      const userId = action.payload;
-      state.users = state.users.filter((u) => u.id !== userId);
-      localStorage.setItem('users', JSON.stringify(state.users));
-      
-      // Logout if deleted user is current user
-      if (state.currentUser && state.currentUser.id === userId) {
-        state.currentUser = null;
-        state.isAuthenticated = false;
-        localStorage.removeItem('currentUser');
+    updateCurrentUser: (state, action) => {
+      if (state.currentUser) {
+        state.currentUser = { ...state.currentUser, ...action.payload };
+        localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
       }
     },
   },
+  extraReducers: (builder) => {
+    // Fetch users
+    builder
+      .addCase(fetchUsers.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchUsers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.users = action.payload;
+      })
+      .addCase(fetchUsers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      });
+
+    // Register user
+    builder
+      .addCase(registerUser.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(registerUser.fulfilled, (state, action) => {
+        state.loading = false;
+        state.users.push(action.payload);
+      })
+      .addCase(registerUser.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+
+    // Update user permissions
+    builder
+      .addCase(updateUserPermissionsAsync.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateUserPermissionsAsync.fulfilled, (state, action) => {
+        state.loading = false;
+        const { userId, ...updates } = action.payload;
+        const userIndex = state.users.findIndex((u) => u.id === userId);
+        
+        if (userIndex !== -1) {
+          state.users[userIndex] = { ...state.users[userIndex], ...updates };
+        }
+        
+        // Update current user if it's the same user
+        if (state.currentUser && state.currentUser.id === userId) {
+          state.currentUser = { ...state.currentUser, ...updates };
+          localStorage.setItem('currentUser', JSON.stringify(state.currentUser));
+        }
+      })
+      .addCase(updateUserPermissionsAsync.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+
+    // Delete user
+    builder
+      .addCase(deleteUserAsync.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteUserAsync.fulfilled, (state, action) => {
+        state.loading = false;
+        const userId = action.payload;
+        state.users = state.users.filter((u) => u.id !== userId);
+        
+        // Logout if deleted user is current user
+        if (state.currentUser && state.currentUser.id === userId) {
+          state.currentUser = null;
+          state.isAuthenticated = false;
+          localStorage.removeItem('currentUser');
+        }
+      })
+      .addCase(deleteUserAsync.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+  },
 });
 
-export const { login, logout, register, updateUser, updateUserPermissions, deleteUser } = authSlice.actions;
+export const { login, logout, setUsers, updateCurrentUser } = authSlice.actions;
 
 // Selectors
 export const selectCurrentUser = (state) => state.auth.currentUser;
